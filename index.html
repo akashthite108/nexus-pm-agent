@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NexusPM — Intelligent Project Management Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .pulse-ring {
+      animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans antialiased selection:bg-indigo-500/30 selection:text-indigo-200 h-screen flex overflow-hidden">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="w-64 bg-slate-900/90 border-r border-slate-800/80 flex flex-col justify-between shrink-0">
+    <div>
+      <div class="h-16 px-5 flex items-center gap-3 border-b border-slate-800/80">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <span class="font-bold text-white tracking-tight text-base block leading-none">NexusPM</span>
+          <span class="text-[10px] font-mono text-indigo-400 uppercase tracking-wider">Voice + Gemini Engine</span>
+        </div>
+      </div>
+
+      <nav class="p-3 space-y-1">
+        <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+          Command Center
+        </button>
+        <button onclick="switchView('new-project')" id="nav-new-project" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          New Prompt Chain
+        </button>
+        <button onclick="switchView('memory')" id="nav-memory" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+          SQLite Memory
+          <span id="memory-badge" class="ml-auto text-[11px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded">1</span>
+        </button>
+      </nav>
+
+      <div class="px-4 pt-4 pb-2">
+        <div class="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+          <span>Saved Workspaces</span>
+          <button onclick="fetchProjectsFromBackend()" class="text-slate-500 hover:text-indigo-400 text-[10px] font-mono">SYNC</button>
+        </div>
+        <div id="project-selector-list" class="space-y-1.5"></div>
+      </div>
+    </div>
+
+    <div class="p-4 border-t border-slate-800/80">
+      <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+        <div class="flex items-center gap-2.5 mb-2">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="pulse-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span class="text-xs font-semibold text-slate-200">FastAPI + Gemini Live</span>
+        </div>
+        <div class="text-[11px] text-slate-400 font-mono space-y-1">
+          <div class="flex justify-between"><span>Model:</span><span class="text-slate-300">gemini-2.5-flash</span></div>
+          <div class="flex justify-between"><span>DB:</span><span class="text-emerald-400">nexus_pm_memory.db</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+    <!-- TOP HEADER -->
+    <header class="h-16 bg-slate-900/60 backdrop-blur-md border-b border-slate-800/80 px-6 flex items-center justify-between shrink-0">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2.5">
+          <h1 id="header-project-title" class="text-base font-semibold text-white truncate">Loading...</h1>
+          <span id="header-status-pill" class="px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">On Schedule</span>
+        </div>
+        <p id="header-project-meta" class="text-xs text-slate-400 font-mono mt-0.5"></p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- VOICE NARRATOR TOGGLE -->
+        <button onclick="toggleVoice()" id="voice-toggle-btn" class="px-3 py-1.5 text-xs font-medium bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-lg transition flex items-center gap-1.5">
+          <svg id="voice-icon" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+          <span id="voice-status-label">Voice Guide: ON</span>
+        </button>
+
+        <button onclick="explainCurrentProjectAloud()" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition">
+          Explain This Demo
+        </button>
+
+        <button onclick="switchView('new-project')" class="px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-sm shadow-indigo-500/20 transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          New Project
+        </button>
+      </div>
+    </header>
+
+    <!-- VIEW 1: COMMAND CENTER DASHBOARD -->
+    <main id="view-dashboard" class="flex-1 overflow-y-auto p-6 space-y-5">
+
+      <!-- REAL ESTATE LIVE GUIDED DEMO LAUNCHER -->
+      <div class="bg-gradient-to-r from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Real Estate Live Demos</span>
+            <span id="narrator-subtitle" class="text-xs text-indigo-300 font-medium truncate">Click a demo below to load it and hear how NexusPM works.</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">
+            Switch between the two real-world real estate workflows and trigger a live AI ReAct disruption with voice narration.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <button onclick="launchGuidedDemo('proj-real-estate-site')" class="px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-indigo-600 text-white border border-slate-700 hover:border-indigo-500 rounded-lg transition">
+            Demo 1: Tower A Site Work
+          </button>
+          <button onclick="launchGuidedDemo('proj-real-estate-proc')" class="px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-indigo-600 text-white border border-slate-700 hover:border-indigo-500 rounded-lg transition">
+            Demo 2: Steel & Cement Procurement
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI METRIC CARDS -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-4">
+          <div class="text-slate-400 text-xs font-medium mb-1.5">Decomposed Subtasks</div>
+          <div class="flex items-baseline gap-2">
+            <span id="kpi-total-tasks" class="text-2xl font-bold text-white font-mono">0</span>
+            <span class="text-xs text-slate-400">tasks mapped</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-4">
+          <div class="text-slate-400 text-xs font-medium mb-1.5">Critical Path Span</div>
+          <div class="flex items-baseline gap-2">
+            <span id="kpi-critical-days" class="text-2xl font-bold text-white font-mono">0d</span>
+            <span id="kpi-deadline-buffer" class="text-xs text-emerald-400 font-mono">+0d buffer</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-4">
+          <div class="text-slate-400 text-xs font-medium mb-1.5">Skill Match Engine</div>
+          <div class="flex items-baseline gap-2">
+            <span class="text-2xl font-bold text-white font-mono">100%</span>
+            <span class="text-xs text-slate-400">DAG verified</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-4">
+          <div class="text-slate-400 text-xs font-medium mb-1.5">ReAct Re-plans</div>
+          <div class="flex items-baseline gap-2">
+            <span id="kpi-replans" class="text-2xl font-bold text-white font-mono">0</span>
+            <span class="text-xs text-slate-400">persisted in SQLite</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN SPLIT WORKSPACE -->
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+        <!-- LEFT 8 COLS -->
+        <div class="xl:col-span-8 space-y-6">
+          <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-slate-800/80 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-semibold text-white">Dynamic Execution Timeline</h2>
+                <span class="text-[11px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">Critical-Path Resolved</span>
+              </div>
+              <div class="flex items-center gap-3 text-[11px] text-slate-400">
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-indigo-500 inline-block"></span>Normal</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block"></span>Modified</span>
+                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block"></span>Breach</span>
+              </div>
+            </div>
+            <div id="gantt-container" class="p-5 overflow-x-auto"></div>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-slate-800/80 flex items-center justify-between">
+              <h2 class="text-sm font-semibold text-white">Task Decomposition & Resource Allocation Matrix</h2>
+              <span class="text-xs text-slate-400">Click any row to hear & inspect LLM rationale</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-800 text-[11px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-950/40">
+                    <th class="py-3 px-4">ID</th>
+                    <th class="py-3 px-4">Subtask</th>
+                    <th class="py-3 px-4">Assignee</th>
+                    <th class="py-3 px-4">Deps</th>
+                    <th class="py-3 px-4">Est.</th>
+                    <th class="py-3 px-4">Window</th>
+                    <th class="py-3 px-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tasks-table-body" class="divide-y divide-slate-800/60 text-xs"></tbody>
+              </table>
+            </div>
+            <div id="task-rationale-banner" class="px-5 py-3 bg-slate-950/70 border-t border-slate-800/80 text-xs text-slate-300"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT 4 COLS -->
+        <div class="xl:col-span-4 space-y-6">
+          <div class="bg-slate-900/90 border border-indigo-500/30 rounded-xl overflow-hidden shadow-lg shadow-indigo-950/20">
+            <div class="px-4 py-3.5 bg-gradient-to-r from-indigo-950/70 to-slate-900 border-b border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                <h2 class="text-sm font-semibold text-white">ReAct Schedule Controller</h2>
+              </div>
+              <span class="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Gemini Live</span>
+            </div>
+
+            <div class="p-4 space-y-3">
+              <p class="text-xs text-slate-400 leading-relaxed">
+                Click a real estate disruption scenario below or type your own change. Gemini runs <span class="text-slate-200 font-mono">Thought → Action → Observation</span> and speaks the result.
+              </p>
+
+              <!-- CONTEXT-AWARE SCENARIO BUTTONS -->
+              <div id="scenario-chips-container" class="flex flex-wrap gap-1.5"></div>
+
+              <textarea id="react-change-input" rows="2" placeholder="Describe site delay, vendor issue, or scope change..." class="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition"></textarea>
+
+              <button onclick="executeReActAgent()" id="react-run-btn" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-md shadow-indigo-500/20 transition flex items-center justify-center gap-2">
+                Execute Live ReAct Re-Planning Loop
+              </button>
+
+              <div class="pt-2">
+                <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
+                  <span class="font-mono font-semibold text-slate-300">Agent Reasoning Trace</span>
+                  <span id="react-step-counter" class="font-mono text-[10px] text-indigo-400">Idle</span>
+                </div>
+                <div id="react-terminal" class="bg-slate-950 border border-slate-800 rounded-lg p-3 h-64 overflow-y-auto font-mono text-[11px] leading-relaxed space-y-2.5 text-slate-300">
+                  <div class="text-slate-500">// Awaiting change request trigger...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-4">
+            <h3 class="text-sm font-semibold text-white mb-3">Team Resource Utilization</h3>
+            <div id="team-capacity-list" class="space-y-3"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- VIEW 2: NEW PROJECT (PROMPT CHAINING WIZARD) -->
+    <main id="view-new-project" class="hidden flex-1 overflow-y-auto p-6">
+      <div class="max-w-4xl mx-auto">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-6">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+            <div>
+              <h2 class="text-lg font-bold text-white">Initialize Project via Live Gemini Prompt Chaining</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Executes Step 1 (Task Decomposition) → Step 2 (Skill-Based Allocation) → Step 3 (Critical-Path Schedule).</p>
+            </div>
+            <span class="text-xs font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2.5 py-1 rounded">Gemini 2.5 Flash</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Project Name</label>
+                <input type="text" id="new-proj-name" value="RERA & Municipal Handover Approvals" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none">
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-slate-300 mb-1">Start Date</label>
+                  <input type="date" id="new-proj-start" value="2026-11-25" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-slate-300 mb-1">Target Deadline</label>
+                  <input type="date" id="new-proj-deadline" value="2026-12-15" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Project Requirements</label>
+                <textarea id="new-proj-req" rows="5" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none">Complete statutory clearances and possession readiness for Wing B: submit Fire NOC documents, conduct municipal site inspection, file RERA completion update, and complete buyer key handover.</textarea>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Team Roster & Skills (JSON)</label>
+              <textarea id="new-proj-team" rows="11" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-[11px] text-emerald-300 focus:border-indigo-500 focus:outline-none">[
+  {"name": "Deshmukh", "role": "Liaison Officer", "skills": ["Fire NOC", "Municipal Approvals", "RERA"]},
+  {"name": "Anita", "role": "Site QA Engineer", "skills": ["Site Inspection", "Handover", "Snag List"]},
+  {"name": "Kulkarni", "role": "Legal & CRM", "skills": ["Possession Letters", "Documentation"]}
+]</textarea>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between">
+            <span id="chain-progress-status" class="text-xs font-mono text-slate-400">Ready to run Gemini decomposition chain.</span>
+            <button onclick="createNewProjectFromChain()" id="create-chain-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-indigo-500/20 transition">
+              Run Gemini Prompt Chain & Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- VIEW 3: PERSISTENT MEMORY & AUDIT LOGS -->
+    <main id="view-memory" class="hidden flex-1 overflow-y-auto p-6">
+      <div class="max-w-4xl mx-auto space-y-4">
+        <div>
+          <h2 class="text-lg font-bold text-white">SQLite Persistent Decision & Change Memory</h2>
+          <p class="text-xs text-slate-400">Stored in <code class="text-indigo-400">nexus_pm_memory.db</code> and fed into ReAct context on every update.</p>
+        </div>
+        <div id="memory-timeline-list" class="space-y-3"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let projectsList = [];
+    let activeProjectId = null;
+    let voiceEnabled = true;
+
+    // =========================================================
+    // VOICE NARRATOR ENGINE (Browser SpeechSynthesis)
+    // =========================================================
+    function speakText(text) {
+      const subEl = document.getElementById("narrator-subtitle");
+      if (subEl) subEl.textContent = text;
+      if (!voiceEnabled || !("speechSynthesis" in window)) return;
+
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.03;
+      utter.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => v.lang.includes("en-IN")) || voices.find(v => v.lang.includes("en"));
+      if (preferred) utter.voice = preferred;
+      window.speechSynthesis.speak(utter);
+    }
+
+    function toggleVoice() {
+      voiceEnabled = !voiceEnabled;
+      const btn = document.getElementById("voice-toggle-btn");
+      const label = document.getElementById("voice-status-label");
+      if (voiceEnabled) {
+        btn.className = "px-3 py-1.5 text-xs font-medium bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-lg transition flex items-center gap-1.5";
+        label.textContent = "Voice Guide: ON";
+        speakText("Voice guide enabled. I will explain each step as you run the software.");
+      } else {
+        window.speechSynthesis.cancel();
+        btn.className = "px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 rounded-lg transition flex items-center gap-1.5";
+        label.textContent = "Voice Guide: OFF";
+      }
+    }
+
+    function explainCurrentProjectAloud() {
+      const proj = getActiveProject();
+      if (!proj) return;
+      if (proj.id === "proj-real-estate-site") {
+        speakText("This is Real Estate Demo 1: Tower A Construction and Site Work. NexusPM decomposed finishing work into five dependent steps, starting with electrical conduits by Rajesh, followed by plastering by Suresh, curing, painting, and final handover by Anita. Now click one of the rain delay or scope scenarios on the right to see the ReAct agent automatically adjust all connected dates.");
+      } else if (proj.id === "proj-real-estate-proc") {
+        speakText("This is Real Estate Demo 2: TMT Steel and Cement Procurement. NexusPM broke material buying into five sequential tasks: collecting vendor quotes by Vikram, GST and landed rate comparison by Priya, purchase order release, transit tracking, and weighbridge quality check by Manoj. Try triggering a supplier delay or rate spike scenario on the right.");
+      } else {
+        speakText(`Currently viewing ${proj.name}. NexusPM has mapped ${proj.tasks.length} dependent tasks across ${proj.team.length} team members. Use the ReAct controller on the right to simulate a live change.`);
+      }
+    }
+
+    function launchGuidedDemo(projectId) {
+      activeProjectId = projectId;
+      switchView("dashboard");
+      renderAll();
+      explainCurrentProjectAloud();
+    }
+
+    function getActiveProject() {
+      return projectsList.find(p => p.id === activeProjectId) || projectsList[0];
+    }
+
+    async function fetchProjectsFromBackend() {
+      const res = await fetch("/api/projects");
+      const data = await res.json();
+      projectsList = data.projects || [];
+      if (!activeProjectId && projectsList.length > 0) {
+        activeProjectId = projectsList[0].id;
+      }
+      renderAll();
+    }
+
+    // Fixed Local-Date Helper (No UTC off-by-one shift)
+    function addDays(dateStr, days) {
+      const [y, m, day] = dateStr.split("-").map(Number);
+      const d = new Date(y, m - 1, day + days);
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${d.getFullYear()}-${mm}-${dd}`;
+    }
+
+    function diffDays(startStr, endStr) {
+      const [sy, sm, sd] = startStr.split("-").map(Number);
+      const [ey, em, ed] = endStr.split("-").map(Number);
+      const s = new Date(sy, sm - 1, sd);
+      const e = new Date(ey, em - 1, ed);
+      return Math.round((e - s) / (1000 * 60 * 60 * 24));
+    }
+
+    function computeSchedule(project) {
+      const taskMap = {};
+      project.tasks.forEach(t => taskMap[t.id] = t);
+      const memo = {};
+
+      function resolve(id, visited = new Set()) {
+        if (memo[id]) return memo[id];
+        if (visited.has(id) || !taskMap[id]) return { startOffset: 0, endOffset: 1 };
+        visited.add(id);
+
+        const t = taskMap[id];
+        const validDeps = (t.dependsOn || []).filter(d => taskMap[d]);
+        let startOffset = 0;
+        if (validDeps.length > 0) {
+          startOffset = Math.max(...validDeps.map(d => resolve(d, new Set(visited)).endOffset));
+        }
+        const duration = Math.max(1, parseInt(t.days || 1, 10));
+        const endOffset = startOffset + duration;
+        memo[id] = { startOffset, endOffset };
+        return memo[id];
+      }
+
+      const deadlineSpan = Math.max(1, diffDays(project.startDate, project.deadline));
+      let maxEndOffset = 0;
+
+      project.tasks.forEach(t => {
+        const { startOffset, endOffset } = resolve(t.id);
+        t.startOffset = startOffset;
+        t.endOffset = endOffset;
+        t.startDate = addDays(project.startDate, startOffset);
+        t.endDate = addDays(project.startDate, endOffset - 1);
+        t.breach = endOffset > deadlineSpan;
+        if (endOffset > maxEndOffset) maxEndOffset = endOffset;
+      });
+
+      return { maxEndOffset, deadlineSpan };
+    }
+
+    function renderScenarioChips(proj) {
+      const container = document.getElementById("scenario-chips-container");
+      let scenarios = [];
+
+      if (proj.id === "proj-real-estate-site") {
+        scenarios = [
+          {
+            label: "Heavy rain delays Plastering (T2) by 3d",
+            prompt: "Heavy monsoon rain delayed wall plastering (T2) by 3 days. Recalculate downstream curing, painting, and handover dates.",
+            narration: "Simulating heavy rain delaying wall plastering T2 by 3 days. Watch how the ReAct agent shifts painting and handover."
+          },
+          {
+            label: "+ Client added Balcony Waterproofing (2d)",
+            prompt: "Client added a 2-day Balcony Waterproofing task after T2 before painting starts, assigned to Suresh.",
+            narration: "Adding a new 2-day balcony waterproofing task after plastering and rewiring dependencies."
+          },
+          {
+            label: "Rajesh (MEP) unavailable for 2 days",
+            prompt: "Rajesh is unavailable for 2 days; extend T1 conduit rough-in by 2 days and check deadline impact.",
+            narration: "Simulating a 2-day MEP engineer absence on task T1."
+          }
+        ];
+      } else if (proj.id === "proj-real-estate-proc") {
+        scenarios = [
+          {
+            label: "Primary steel supplier delayed 4 days",
+            prompt: "Primary TMT steel supplier delayed dispatch (T4) by 4 days. Add a 2-day backup vendor verification task or adjust transit timeline.",
+            narration: "Simulating a 4-day primary steel vendor dispatch delay. Watch how NexusPM adjusts procurement dates."
+          },
+          {
+            label: "+ Add Third-Party Lab Tensile Test (2d)",
+            prompt: "Site structural consultant mandated a 2-day third-party steel tensile lab test dependent on T4 before final sign-off, assigned to Manoj.",
+            narration: "Adding a mandatory 2-day third-party steel lab test before site sign-off."
+          },
+          {
+            label: "Priya on leave; reassign GST sheet (T2)",
+            prompt: "Priya is on emergency leave; reassign GST comparison sheet (T2) to Vikram with 1 extra day.",
+            narration: "Reassigning the GST comparison sheet because Priya is on leave."
+          }
+        ];
+      } else {
+        scenarios = [
+          {
+            label: "Aarav 3d leave",
+            prompt: "Aarav is on leave for 3 days; reassign or adjust payment tasks.",
+            narration: "Simulating Aarav taking 3 days of leave."
+          },
+          {
+            label: "+ GST Invoice PDF",
+            prompt: "Client added a GST Invoice PDF generator task (2 days) dependent on T3.",
+            narration: "Adding a 2-day GST Invoice PDF feature dependent on T3."
+          },
+          {
+            label: "Drop Redis scope",
+            prompt: "Drop Redis caching (T4) to accelerate release before deadline.",
+            narration: "Dropping Redis caching task T4 to save timeline buffer."
+          }
+        ];
+      }
+
+      container.innerHTML = scenarios.map((s, idx) => `
+        <button onclick='triggerScenarioPreset(${JSON.stringify(s)})' class="text-[11px] bg-slate-800 hover:bg-indigo-600/80 text-slate-200 px-2.5 py-1 rounded-md border border-slate-700 hover:border-indigo-400 transition text-left">
+          ${s.label}
+        </button>
+      `).join("");
+    }
+
+    function triggerScenarioPreset(scenarioObj) {
+      document.getElementById("react-change-input").value = scenarioObj.prompt;
+      speakText(scenarioObj.narration);
+      executeReActAgent();
+    }
+
+    function renderAll() {
+      const proj = getActiveProject();
+      if (!proj) return;
+      const { maxEndOffset, deadlineSpan } = computeSchedule(proj);
+
+      renderScenarioChips(proj);
+
+      document.getElementById("project-selector-list").innerHTML = projectsList.map(p => {
+        const active = p.id === proj.id;
+        return `
+          <button onclick="selectProject('${p.id}')" class="w-full text-left px-3 py-2 rounded-lg text-xs transition flex items-center justify-between ${active ? 'bg-slate-800 text-white font-medium border border-slate-700' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}">
+            <span class="truncate pr-2">${p.name}</span>
+            <span class="text-[10px] font-mono text-slate-500 shrink-0">${p.tasks.length}t</span>
+          </button>
+        `;
+      }).join("");
+
+      document.getElementById("memory-badge").textContent = proj.memoryLogs.length;
+      document.getElementById("header-project-title").textContent = proj.name;
+      document.getElementById("header-project-meta").textContent = `Start: ${proj.startDate} • Target Deadline: ${proj.deadline} (${deadlineSpan} Days)`;
+
+      const statusPill = document.getElementById("header-status-pill");
+      if (maxEndOffset > deadlineSpan) {
+        statusPill.className = "px-2 py-0.5 text-[11px] font-medium rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30";
+        statusPill.textContent = `Slip: +${maxEndOffset - deadlineSpan}d Over Deadline`;
+      } else {
+        statusPill.className = "px-2 py-0.5 text-[11px] font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        statusPill.textContent = "On Schedule";
+      }
+
+      document.getElementById("kpi-total-tasks").textContent = proj.tasks.length;
+      document.getElementById("kpi-critical-days").textContent = `${maxEndOffset}d`;
+      const buffer = deadlineSpan - maxEndOffset;
+      const bufEl = document.getElementById("kpi-deadline-buffer");
+      bufEl.className = buffer >= 0 ? "text-xs text-emerald-400 font-mono" : "text-xs text-rose-400 font-mono";
+      bufEl.textContent = buffer >= 0 ? `+${buffer}d buffer` : `${buffer}d breach`;
+      document.getElementById("kpi-replans").textContent = Math.max(0, proj.memoryLogs.length - 1);
+
+      const totalChartDays = Math.max(deadlineSpan, maxEndOffset, 10);
+      let ganttHtml = `<div class="min-w-[600px] space-y-2.5">
+        <div class="grid grid-cols-12 text-[10px] font-mono text-slate-500 pb-1 border-b border-slate-800/80">
+          <div class="col-span-4">TASK / OWNER</div>
+          <div class="col-span-8 flex justify-between px-1">
+            <span>Day 1</span>
+            <span>Day ${Math.ceil(totalChartDays / 2)}</span>
+            <span class="text-indigo-400">Deadline (Day ${deadlineSpan})</span>
+          </div>
+        </div>`;
+
+      proj.tasks.forEach(t => {
+        const leftPct = (t.startOffset / totalChartDays) * 100;
+        const widthPct = Math.max(6, ((t.endOffset - t.startOffset) / totalChartDays) * 100);
+        const barColor = t.breach ? "bg-rose-500" : t.modified ? "bg-amber-500" : "bg-indigo-500";
+
+        ganttHtml += `
+          <div class="grid grid-cols-12 items-center text-xs py-1 hover:bg-slate-800/30 rounded px-1 transition">
+            <div class="col-span-4 pr-3 truncate">
+              <span class="font-mono text-[11px] text-indigo-400 mr-1.5">${t.id}</span>
+              <span class="text-slate-200 font-medium">${t.title}</span>
+              <span class="block text-[10px] text-slate-500 ml-6">${t.assignee} • ${t.days}d</span>
+            </div>
+            <div class="col-span-8 relative h-6 bg-slate-950/90 rounded-md border border-slate-800/80 flex items-center">
+              <div style="left: ${Math.min(100, (deadlineSpan / totalChartDays) * 100)}%" class="absolute top-0 bottom-0 w-px bg-rose-500/40 z-10"></div>
+              <div style="left: ${leftPct}%; width: ${widthPct}%" class="relative h-4 ${barColor} rounded shadow-sm flex items-center justify-center text-[10px] font-mono text-white font-semibold px-1.5 truncate">
+                ${t.days}d
+              </div>
+            </div>
+          </div>`;
+      });
+      ganttHtml += `</div>`;
+      document.getElementById("gantt-container").innerHTML = ganttHtml;
+
+      document.getElementById("tasks-table-body").innerHTML = proj.tasks.map(t => {
+        const deps = t.dependsOn && t.dependsOn.length ? t.dependsOn.join(", ") : "—";
+        const badge = t.breach
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-400 border border-rose-500/30">Breach</span>`
+          : t.modified
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">Updated</span>`
+          : `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Planned</span>`;
+
+        return `
+          <tr onclick="showRationale('${t.id}', true)" class="hover:bg-slate-800/40 cursor-pointer transition">
+            <td class="py-3 px-4 font-mono font-semibold text-indigo-400">${t.id}</td>
+            <td class="py-3 px-4 text-slate-200 font-medium">${t.title}</td>
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-md bg-slate-800 text-slate-200 border border-slate-700 text-[11px]">${t.assignee}</span></td>
+            <td class="py-3 px-4 font-mono text-slate-400">${deps}</td>
+            <td class="py-3 px-4 font-mono text-slate-300">${t.days}d</td>
+            <td class="py-3 px-4 font-mono text-[11px] text-slate-400">${t.startDate.slice(5)} → ${t.endDate.slice(5)}</td>
+            <td class="py-3 px-4">${badge}</td>
+          </tr>`;
+      }).join("");
+
+      if (proj.tasks.length > 0) showRationale(proj.tasks[0].id, false);
+
+      document.getElementById("team-capacity-list").innerHTML = proj.team.map(member => {
+        const assignedDays = proj.tasks
+          .filter(t => t.assignee.toLowerCase() === member.name.toLowerCase())
+          .reduce((sum, t) => sum + parseInt(t.days || 0, 10), 0);
+        const pct = Math.min(100, Math.round((assignedDays / deadlineSpan) * 100));
+        const barCol = pct > 90 ? "bg-rose-500" : pct > 65 ? "bg-amber-500" : "bg-emerald-500";
+
+        return `
+          <div class="bg-slate-950/70 border border-slate-800/80 rounded-lg p-3">
+            <div class="flex items-center justify-between text-xs mb-1">
+              <div>
+                <span class="font-semibold text-slate-200">${member.name}</span>
+                <span class="text-[11px] text-slate-500 ml-1.5">${member.role}</span>
+              </div>
+              <span class="font-mono text-[11px] text-slate-300">${assignedDays}d / ${deadlineSpan}d (${pct}%)</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-2">
+              <div style="width: ${pct}%" class="h-full ${barCol}"></div>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              ${member.skills.map(s => `<span class="text-[10px] font-mono px-1.5 bg-slate-900 text-slate-400 border border-slate-800 rounded">${s}</span>`).join("")}
+            </div>
+          </div>`;
+      }).join("");
+
+      document.getElementById("memory-timeline-list").innerHTML = [...proj.memoryLogs].reverse().map(log => `
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 text-[10px] font-mono font-semibold rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">${log.type}</span>
+            <span class="text-xs font-mono text-slate-500">${log.timestamp}</span>
+          </div>
+          <p class="text-sm text-slate-200 font-medium">${log.summary}</p>
+          <pre class="bg-slate-950 border border-slate-800/90 rounded-lg p-3 font-mono text-[11px] text-slate-400 overflow-x-auto whitespace-pre-wrap">${log.trace}</pre>
+        </div>`).join("");
+    }
+
+    function showRationale(taskId, speak = false) {
+      const proj = getActiveProject();
+      const t = proj.tasks.find(x => x.id === taskId);
+      if (!t) return;
+      document.getElementById("task-rationale-banner").innerHTML = `
+        <span><strong class="text-indigo-400 font-mono">${t.id} (${t.assignee}) Rationale:</strong> ${t.rationale}</span>`;
+      if (speak) {
+        speakText(`Task ${t.id}, ${t.title}, assigned to ${t.assignee} for ${t.days} days. ${t.rationale}`);
+      }
+    }
+
+    function selectProject(id) {
+      activeProjectId = id;
+      switchView("dashboard");
+      renderAll();
+      const proj = getActiveProject();
+      if (proj) speakText(`Loaded project: ${proj.name}.`);
+    }
+
+    function switchView(viewName) {
+      ["dashboard", "new-project", "memory"].forEach(v => {
+        document.getElementById(`view-${v}`).classList.add("hidden");
+        document.getElementById(`nav-${v}`).className = "nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition";
+      });
+      document.getElementById(`view-${viewName}`).classList.remove("hidden");
+      document.getElementById(`nav-${viewName}`).className = "nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 transition";
+    }
+
+    async function createNewProjectFromChain() {
+      const name = document.getElementById("new-proj-name").value.trim();
+      const startDate = document.getElementById("new-proj-start").value;
+      const deadline = document.getElementById("new-proj-deadline").value;
+      const requirements = document.getElementById("new-proj-req").value.trim();
+      const statusEl = document.getElementById("chain-progress-status");
+      const btn = document.getElementById("create-chain-btn");
+
+      let team;
+      try {
+        team = JSON.parse(document.getElementById("new-proj-team").value);
+      } catch (e) {
+        alert("Invalid Team JSON format.");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.classList.add("opacity-60");
+      statusEl.textContent = "Calling Gemini API: Chaining Decomposition -> Allocation -> Schedule...";
+      speakText(`Running three-stage prompt chain for ${name}. Step 1 decomposes requirements into subtasks. Step 2 matches team skills. Step 3 computes schedule dates.`);
+
+      try {
+        const res = await fetch("/api/projects/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, startDate, deadline, requirements, team }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Failed to generate project");
+
+        projectsList = data.projects;
+        activeProjectId = data.projectId;
+        statusEl.textContent = "Ready to run Gemini decomposition chain.";
+        switchView("dashboard");
+        renderAll();
+        speakText(`Project ${name} created and saved to SQLite memory.`);
+      } catch (err) {
+        statusEl.textContent = "Error: " + err.message;
+        speakText("An error occurred while creating the project.");
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove("opacity-60");
+      }
+    }
+
+    async function executeReActAgent() {
+      const inputEl = document.getElementById("react-change-input");
+      const changeRequest = inputEl.value.trim();
+      if (!changeRequest) return;
+
+      const proj = getActiveProject();
+      const term = document.getElementById("react-terminal");
+      const counter = document.getElementById("react-step-counter");
+      const btn = document.getElementById("react-run-btn");
+
+      btn.disabled = true;
+      btn.classList.add("opacity-60");
+      counter.textContent = "Running Gemini ReAct...";
+      term.innerHTML = `<div class="text-indigo-400 animate-pulse">// Executing Thought -> Action -> Observation loop on Gemini 2.5 Flash...</div>`;
+
+      try {
+        const res = await fetch("/api/projects/react-update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId: proj.id, changeRequest }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "ReAct execution failed");
+
+        term.innerHTML = "";
+        (data.traceSteps || []).forEach(s => {
+          const div = document.createElement("div");
+          if (s.type === "thought") {
+            div.innerHTML = `<span class="text-indigo-400 font-semibold">Thought:</span> <span class="text-slate-300">${s.text}</span>`;
+          } else if (s.type === "action") {
+            div.innerHTML = `<span class="text-amber-400 font-semibold">Action:</span> <span class="text-amber-200">${s.text}</span>`;
+          } else {
+            div.innerHTML = `<span class="text-emerald-400 font-semibold">Observation:</span> <span class="text-slate-400">${s.text}</span>`;
+          }
+          term.appendChild(div);
+        });
+
+        counter.textContent = "Completed";
+        inputEl.value = "";
+        projectsList = data.projects;
+        renderAll();
+
+        if (data.summary) {
+          speakText("ReAct update complete. " + data.summary);
+        }
+      } catch (err) {
+        term.innerHTML = `<div class="text-rose-400">Error: ${err.message}</div>`;
+        counter.textContent = "Failed";
+        speakText("ReAct execution failed. Check your Gemini API key in CMD.");
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove("opacity-60");
+      }
+    }
+
+    fetchProjectsFromBackend();
+  </script>
+</body>
+</html>
